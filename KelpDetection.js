@@ -1,6 +1,6 @@
 // imports required -they'll be highlighted yellow, thats ok, you can import them if you want
 var AOI = 
-    /* color: #d63000 */
+    /* color: #B00B1E */
     /* displayProperties: [
       {
         "type": "rectangle"
