@@ -1,21 +1,52 @@
+// imports required -they'll be highlighted yellow, thats ok, you can import them if you want
+var AOI = 
+    /* color: #d63000 */
+    /* displayProperties: [
+      {
+        "type": "rectangle"
+      }
+    ] */
+    ee.Geometry.Polygon(
+        [[[-122.02595780861449, 36.40194656170591],
+          [-122.02595780861449, 35.91853281686468],
+          [-121.35579179298949, 35.91853281686468],
+          [-121.35579179298949, 36.40194656170591]]], null, false),
+    imageCollection = ee.ImageCollection("COPERNICUS/S2_HARMONIZED"),
+    cloudscore = ee.ImageCollection("GOOGLE/CLOUD_SCORE_PLUS/V1/S2_HARMONIZED");
+
 // Function to process Sentinel-2 images and compute histograms
 function processSentinel2(year, region) {
     // Define the date range for each year
-    var startDate = ee.Date(year + "-06-01");
-    var endDate = ee.Date(year + "-08-31");
+    var startDate = ee.Date(year + "-07-01");
+    var endDate = ee.Date(year + "-07-31");
+
+    // Cloud Score+ collection
+    var csPlus = ee.ImageCollection('GOOGLE/CLOUD_SCORE_PLUS/V1/S2_HARMONIZED');
+    var QA_BAND = 'cs'; // Use 'cs' or 'cs_cdf'
+    var CLEAR_THRESHOLD = 0.20; // Cloud masking threshold
+
+    // Function to mask clouds using Cloud Score+
+    // this makes a composite image containing cloud free pixels over the date range
+    function maskClouds(image) {
+        var cloudMask = csPlus
+            .filterBounds(image.geometry())
+            .filterDate(image.date(), image.date().advance(1, 'day'))
+            .median()
+            .select(QA_BAND)
+            .gte(CLEAR_THRESHOLD);
+        
+        return image.updateMask(cloudMask);
+    }
 
     // Load Sentinel-2 image collection for the given year
     var imageCollection = ee.ImageCollection('COPERNICUS/S2_HARMONIZED')
         .filterDate(startDate, endDate) // Filter by date
         .filterBounds(region) // Filter by region
-        .sort("CLOUDY_PIXEL_PERCENTAGE") // Sort by lowest cloud cover
-        .map(function(image) {
-            return image.updateMask(image.select('QA60').eq(0)); // Mask out cloudy pixels
-        })
-        .first(); // Get the best image (least cloud cover)
+        .linkCollection(csPlus, [QA_BAND])
+        .map(maskClouds); // Apply cloud mask
 
-    // Print the selected image to the console
-    print("Image for " + year, imageCollection);
+    // Create a composite of all cloud-free images over the AOI
+    var composite = imageCollection.mean();
 
     // Visualization parameters for true color and false color
     var trueColour = {
@@ -30,50 +61,68 @@ function processSentinel2(year, region) {
     };
 
     // Add true color and false color composites to the map
-    Map.addLayer(imageCollection, trueColour, year + " true-color image");
-    Map.addLayer(imageCollection, falseColour, year + " false-color composite");
+    Map.addLayer(composite, trueColour, year + " true-color image");
+    Map.addLayer(composite, falseColour, year + " false-color composite");
 
     // NDVI calculation
-    var NDVI = imageCollection.expression(
+    var NDVI = composite.expression(
         "(NIR - RED) / (NIR + RED)",
         {
-            RED: imageCollection.select("B4"),
-            NIR: imageCollection.select("B8")
+            RED: composite.select("B4"),
+            NIR: composite.select("B8")
         }
     );
     Map.addLayer(NDVI, {min: -0.5, max: 1, palette: ['white', 'yellow','green','red']}, year + " NDVI");
 
     // FAI calculation
-    var FAI = imageCollection.expression(
+    var FAI = composite.expression(
         '(B8 - (B4 + (B11 - B4) * ((0.833 - 0.665) / (1.612 - 0.665))))',
         {
-            B8: imageCollection.select('B8'),
-            B4: imageCollection.select('B4'),
-            B11: imageCollection.select('B11')
+            B8: composite.select('B8'),
+            B4: composite.select('B4'),
+            B11: composite.select('B11')
         }
     ).rename('FAI');
-    Map.addLayer(FAI, {min: -1536, max: 4000, palette: ['white', 'blue', 'orange', 'yellow']}, year + " FAI");
+    //Map.addLayer(FAI, {min: -1536, max: 4000, palette: ['white', 'blue', 'purple', 'red']}, year + " FAI");
 
     // KD calculation
-    var KD = imageCollection.expression(
+    var KD = composite.expression(
         '(r6 - b4)',
         {
-            b4: imageCollection.select('B4'),
-            r6: imageCollection.select('B6')
+            b4: composite.select('B4'),
+            r6: composite.select('B6')
         }
     ).rename('KD');
-    Map.addLayer(KD, {min: -2304, max: 5000, palette: ['white', 'orange', 'blue', 'red']}, year + ' KD');
+    //Map.addLayer(KD, {min: -2304, max: 5000, palette: ['white', 'orange', 'blue', 'red']}, year + ' KD');
+
+    // Compute histograms for FAI and KD
+    var FAI_histogram = FAI.reduceRegion({
+        reducer: ee.Reducer.histogram(50), // 50 bins
+        geometry: region,
+        scale: 30,
+        bestEffort: true
+    });
+    //print("FAI Histogram for " + year, FAI_histogram);
+
+    var KD_histogram = KD.reduceRegion({
+        reducer: ee.Reducer.histogram(50), // 50 bins
+        geometry: region,
+        scale: 30,
+        bestEffort: true
+    });
+    //print("KD Histogram for " + year, KD_histogram);
 }
 
 // Set the area of interest
-Map.centerObject(miguel);
+Map.centerObject(AOI,11);
 
-// Call the function for multiple years
-processSentinel2(2017, miguel);
-// processSentinel2(2018, miguel);
-// processSentinel2(2019, miguel);
-// processSentinel2(2020, miguel);
-// processSentinel2(2021, miguel);
-// processSentinel2(2022, miguel);
-// processSentinel2(2023, miguel);
-// processSentinel2(2024, miguel);
+// Call the function for multiple years - remove the '//' for tha code to run
+processSentinel2(2016, AOI);   
+processSentinel2(2017, AOI);
+processSentinel2(2018, AOI);
+processSentinel2(2019, AOI);
+processSentinel2(2020, AOI);
+processSentinel2(2021, AOI);
+processSentinel2(2022, AOI);
+processSentinel2(2023, AOI);
+processSentinel2(2024, AOI);
