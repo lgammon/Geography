@@ -1,4 +1,3 @@
-// imports required -they'll be highlighted yellow, thats ok, you can import them if you want
 var AOI = 
     /* color: #B00B1E */
     /* displayProperties: [
@@ -37,13 +36,20 @@ function processSentinel2(year, region) {
         
         return image.updateMask(cloudMask);
     }
+    
+        // Function to mask out values over 0.028 in Band 11 (B11)
+    function maskB11(image) {
+        var mask = image.select('B11').lte(1000); // Keep pixels where B11 <= 0.028
+        return image.updateMask(mask);
+    }
 
     // Load Sentinel-2 image collection for the given year
     var imageCollection = ee.ImageCollection('COPERNICUS/S2_HARMONIZED')
         .filterDate(startDate, endDate) // Filter by date
         .filterBounds(region) // Filter by region
         .linkCollection(csPlus, [QA_BAND])
-        .map(maskClouds); // Apply cloud mask
+        .map(maskClouds) // Apply cloud mask
+        .map(maskB11);
 
     // Create a composite of all cloud-free images over the AOI
     var composite = imageCollection.mean();
@@ -117,12 +123,12 @@ function processSentinel2(year, region) {
 Map.centerObject(AOI,11);
 
 // Call the function for multiple years - remove the '//' for tha code to run
-processSentinel2(2016, AOI);   
-processSentinel2(2017, AOI);
-processSentinel2(2018, AOI);
-processSentinel2(2019, AOI);
+//processSentinel2(2016, AOI);   
+//processSentinel2(2017, AOI);
+//processSentinel2(2018, AOI);
+//processSentinel2(2019, AOI);
 processSentinel2(2020, AOI);
-processSentinel2(2021, AOI);
-processSentinel2(2022, AOI);
-processSentinel2(2023, AOI);
-processSentinel2(2024, AOI);
+//processSentinel2(2021, AOI);
+//processSentinel2(2022, AOI);
+//processSentinel2(2023, AOI);
+//processSentinel2(2024, AOI);
