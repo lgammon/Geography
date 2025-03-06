@@ -1,7 +1,7 @@
 
 
 var AOI = 
-    /* color: #b00b1e */
+    /* color: #badd1e */
     /* shown: false */
     /* displayProperties: [
       {
