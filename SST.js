@@ -13,72 +13,59 @@ var region =
           [-126.21131002982877, 32.01702590426389],
           [-116.49939596732877, 32.01702590426389],
           [-116.49939596732877, 40.102956016512145]]], null, false);
-// Set the area of interest
-Map.centerObject(region, 11);
 
-// User parameters:
-var showSingleYear = false; // Set to true to display a single year instead of the composite
-var selectedYear = 2023; // Year to display if showSingleYear is true
-
-// Function to process and visualize Sea Surface Temperature (SST) for a single year
+// Function to process and visualize Sea Surface Temperature (SST)
 function processSST(year, region) {
     // Define the date range for each year
     var startDate = ee.Date(year + "-07-01");
-    var endDate = ee.Date(year + "-08-31");
+    var endDate = ee.Date(year + "-07-31");
 
     // Load JAXA GCOM-C SST dataset
     var sst = ee.ImageCollection('JAXA/GCOM-C/L3/OCEAN/SST/V3')
         .filterDate(startDate, endDate) // Filter by date
         .filter(ee.Filter.eq('SATELLITE_DIRECTION', 'D')) // Filter for daytime data
-        .select('SST_AVE') // Select only the SST_AVE band
         .mean() // Compute mean composite
         .multiply(0.0012).add(-10) // Adjust for scale
+        .select('SST_AVE') // Select only the SST_AVE band
         .clip(region); // Clip to the specified region
 
-    return sst;
-}
+    // Visualization parameters
+    var vis = {
+        bands: ['SST_AVE'],
+        min: 0,
+        max: 25,
+        palette: ['000000', '005aff', '43c8c8', 'fff700', 'ff0000'],
+    };
 
-// Function to create a multi-year median composite
-function createMultiYearComposite(years, region) {
-    var composites = years.map(function(year) {
-        return processSST(year, region);
+    // Add the SST layer to the map
+    Map.addLayer(sst, vis, 'SST ' + year);
+    print(year, sst);
+
+    // Compute histogram for SST values
+    var histogram = sst.reduceRegion({
+        reducer: ee.Reducer.histogram(50), // 50 bins
+        geometry: region,
+        scale: 500,
+        bestEffort: true
     });
+    print("Histogram for " + year, histogram);
 
-    var multiYearComposite = ee.ImageCollection(composites).median();
-    
-    return multiYearComposite;
+    // Generate and display the histogram chart
+    var chart = ui.Chart.image.histogram({
+        image: sst,
+        region: region,
+        scale: 500,
+        minBucketWidth: 0.5
+    })
+    .setOptions({
+        title: 'SST Histogram for ' + year,
+        hAxis: { title: 'Temperature (°C)' },
+        vAxis: { title: 'Pixel Count' },
+        colors: ['blue']
+    });
+    print(chart);
 }
 
-// List of years to process
-var years = [2018, 2019, 2020, 2021, 2022, 2023, 2024];
-
-// Generate the multi-year composite
-var multiYearSST = createMultiYearComposite(years, region);
-/*
-// Load the DEM dataset and create a mask
-var dem = ee.Image('USGS/SRTMGL1_003').select('elevation');
-var demMask = dem.lt(0); // Masking land (keep ocean areas only)
-
-// Apply the DEM mask to the SST composite
-var maskedSST = multiYearSST.updateMask(demMask);
-*/
-// Visualization parameters
-var vis = {
-    bands: ['SST_AVE'],
-    min: 0,
-    max: 25,
-    palette: ['000000', '005aff', '43c8c8', 'fff700', 'ff0000'],
-};
-
-// Display either the multi-year composite or a single year
-if (showSingleYear) {
-    var singleYearSST = processSST(selectedYear, region).updateMask(demMask);
-    Map.addLayer(singleYearSST, vis, 'SST ' + selectedYear);
-    print('SST for ' + selectedYear, singleYearSST);
-} else {
-    Map.addLayer(multiYearSST, vis, 'Multi-Year SST Composite');
-    print('Multi-Year SST Composite', multiYearSST);
-}
 
 // Function to add a legend
 function addLegend() {
@@ -128,6 +115,11 @@ function addLegend() {
     Map.add(legend);
 }
 
+// Process and visualize SST for multiple years
+var years = [2019, 2020, 2021, 2022];
+years.forEach(function(year) {
+    processSST(year, region);
+});
+
 // Add the legend to the map
 addLegend();
-
