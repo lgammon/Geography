@@ -1,4 +1,28 @@
-var AOI = 
+var sanMiguel = 
+    /* color: #0000ff */
+    /* displayProperties: [
+      {
+        "type": "rectangle"
+      }
+    ] */
+    ee.Geometry.Polygon(
+        [[[-120.6371223407217, 34.22833264822677],
+          [-120.6371223407217, 33.868770426087764],
+          [-120.0603401141592, 33.868770426087764],
+          [-120.0603401141592, 34.22833264822677]]], null, false),
+    BigSur = 
+    /* color: #999900 */
+    /* displayProperties: [
+      {
+        "type": "rectangle"
+      }
+    ] */
+    ee.Geometry.Polygon(
+        [[[-121.98284247171388, 36.395350166372815],
+          [-121.98284247171388, 36.23600684921763],
+          [-121.79332831155763, 36.23600684921763],
+          [-121.79332831155763, 36.395350166372815]]], null, false),
+    AOI = 
     /* color: #d63000 */
     /* shown: false */
     /* displayProperties: [
@@ -2188,8 +2212,6 @@ var AOI =
     /* shown: false */
     ee.Geometry.MultiPoint();
 
-
-
 // Function to process Sentinel-2 images and compute histograms
 function processSentinel2(year, region, visualize) {
     // Define the date range for each year
@@ -2377,20 +2399,26 @@ print('Validation error matrix: ', testAccuracy);
 //Print the overall accuracy to the console
 print('Validation overall accuracy: ', testAccuracy.accuracy());
 
-// Export the hillshade to the shared Google Drive folder
 Export.image.toDrive({
   image: classified,
-  //description: 'Hillshade_BC_Alaska2',
-  description: 'classified',
+  description: 'classified_bigsur',
   scale: 10,
-  region: AOI,
+  region: BigSur,
+  folder: '',
+  fileFormat: 'GeoTIFF'
+});
+
+Export.image.toDrive({
+  image: classified,
+  description: 'classified_sanmiguel',
+  scale: 10,
+  region: sanMiguel,
   folder: '',
   fileFormat: 'GeoTIFF'
 });
 
 Export.image.toDrive({
   image: multiYearComposite,
-  //description: 'Hillshade_BC_Alaska2',
   description: 'Hillshade_MissingBits2',
   scale: 10,
   region: AOI,
